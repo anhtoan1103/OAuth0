@@ -1,0 +1,64 @@
+HTML {
+    height: 100%
+}
+
+body {
+    background: linear-gradient(to top, #16222A , #3A6073);
+    min-height: 100%;
+    display: flex;
+    justify-content: center;
+    flex-direction: column;
+    align-items: center;
+}
+
+.login-form {
+    border: white 2px solid;
+    border-radius: 5px;
+    width:450px;
+    background:rgba(58,63,68,0.5);
+    color: white;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    margin: 10px;
+}
+
+.login-content {
+    width: 450px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    margin: 10px;
+}
+.email, .password {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    width: 100%;
+}
+
+.email label, .password label {
+    margin: 15px;
+}
+
+.email input, .password input {
+    margin: 15px;
+    height: 30px;
+}
+
+.email input::placeholder, .password input::placeholder {
+    
+    color: black;
+}
+
+.login-item {
+}
+
+.btn-submit {
+    width: 70%;
+    background-color: aqua;
+    height: 35px;
+    font-size: 1.2rem;
+}
