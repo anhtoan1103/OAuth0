@@ -1,20 +1,19 @@
 {
-  "name": "toto_code",
+  "name": "oauth0",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "nodemon index.js"
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "author": "toto",
-  "license": "MIT",
-  "devDependencies": {
-    "body-parser": "^1.20.2",
-    "express": "^4.18.2",
-    "nodemon": "^2.0.22"
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/anhtoan1103/OAuth0.git"
   },
-  "dependencies": {
-    "pug": "^3.0.2"
-  }
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/anhtoan1103/OAuth0/issues"
+  },
+  "homepage": "https://github.com/anhtoan1103/OAuth0#readme"
 }
