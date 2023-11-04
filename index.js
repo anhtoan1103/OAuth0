@@ -15,6 +15,21 @@ app.use(express.json())
 app.get('/', (req, res) => {
   res.send('hello world')
 })
+/**
+ * access token will be created in 2 case, the first time is when the user login, the second time is when the access token is expirated.
+ * 
+ * @param {*} username 
+ * @returns 
+ */
+const createAccessToken = async (username) => {
+  // check if username is in database, incase 
+  const user = await collection.findOne({username: username})
+  if(!user) { //if user doesn't exist
+    return '', new Error("User doesn't exist.")
+  }
+  const token = jwt.sign({user: username}, 'secretkey', { expiresIn: 60 })
+  return token, null
+}
 
 app.post('/register', async (req, res) => {
   const username = req.body.username
@@ -23,8 +38,8 @@ app.post('/register', async (req, res) => {
   if (username && password) {
     if (password == confirmPassword) {
       // check if the username is exist
-      const user = await collection.find({username: username}).toArray()
-      if (!user.length) { 
+      const user = await collection.findOne({username: username})
+      if (!user) { 
         bcrypt.genSalt(saltRounds, function(err, salt) {
           if (err) throw err
           bcrypt.hash(password, salt, async (err, hash) => {
@@ -50,7 +65,6 @@ app.post('/register', async (req, res) => {
 app.post('/login', async (req, res) => {
   const username = req.body.username
   const password = req.body.password
-  const jwtToken = req.get('token')
   // check if user exist or not
   const user = await collection.findOne({username: username})
   console.log(user)
@@ -58,18 +72,25 @@ app.post('/login', async (req, res) => {
     // check password match after hash    
     const match = await bcrypt.compare(password, user.password)
     if (match) {
-      // create a jwt to save the session of user
-      if (!jwtToken) {
-        const token = jwt.sign({user: username}, 'secretkey', { expiresIn: 60 })
-        res.status(200).json({rs:'matched', token: token, message: 'login without jwt'})
-      } else {
-        jwt.verify(jwtToken, 'secretkey', (err, decoded) => {
-          // if there's some error with the jwt
-          if (err) res.status(400).json(err)
-          if (decoded?.user == username) res.status(200).json('login with jwt')
-        })
-      }
+      // return refresh token and access token
+      const accessToken = jwt.sign({username: username}, 'secretkey', {expiresIn: '1m'})
+      const refreshToken = jwt.sign({username: username}, 'secretkey', {expiresIn: '10m'})
+
+      // save the refresh token to database and send access token and refresh token to user cookie
+      res.cookie('refreshToken', refreshToken, {
+        httpOnly: true,
+        sameSite: 'None',
+        secure: true,
+        maxAge: 24 * 60 * 60 * 1000
+      })
+
+      res.status(200).json({accessToken})
     }
+  else {
+    return res.status(406).json({
+      message: "Invalid credentials"
+    })
+  }
   }
   // return user
   // check the hash password with the password
