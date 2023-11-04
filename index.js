@@ -3,14 +3,17 @@ import 'dotenv/config'
 import { connectDB } from './mongoDB.js'
 import jwt from 'jsonwebtoken'
 import bcrypt from 'bcrypt'
+import cookies from 'cookie-parser'
 const saltRounds = 1;
 const db = await connectDB()
 const collection = db.collection('user')
+const jwtRefresh = db.collection('jwtRefresh')
 const findResult = await collection.find({}).toArray()
 
 const app = express()
 const PORT = 8080
 app.use(express.json())
+app.use(cookies())
 
 app.get('/', (req, res) => {
   res.send('hello world')
@@ -84,12 +87,59 @@ app.post('/isAuth', async (req, res) => {
       try {
         const refreshTokens = jwt.verify(refreshToken, 'secretkey')
         // use refreshToken to create new accessToken and refreshToken
+        // revoke old refresh token and create new access token and new refresh token
+
         res.json(refreshTokens)
       } catch(err) {
+        // revoke all token
         res.status(406).json("Invalid token")
       }
+    } else {
+      return res.status(200).json([true, accessToken])
     }
   })
+})
+
+/**
+ * todo: create access token and update refresh token if refreshToken is valid, if not revoke all token
+ */
+app.post('/refresh', async (req, res) => {
+  console.log(req.cookies.refreshToken)
+  if (req.cookies?.refreshToken) {
+    const refreshToken = req.cookies.refreshToken
+    const jwtId = refreshToken.split('.')[2]
+    const oldRefreshToken = await jwtRefresh.findOne({jwtId: jwtId})
+    const currentUser = req.headers['username']
+
+    if (oldRefreshToken) {
+      jwt.verify(refreshToken, 'secretkey', async (err, decoded) => {
+        if(err) { // redirect to login
+          return res.status(406).json(err, 'redirect to login')
+        } else {
+          // update current refresh token and create new access token
+          // check the current refresh token is in database?
+  
+          try {
+            const [newRefreshToken, ] = await createRefreshToken(decoded.username)
+            let newJwtId = newRefreshToken.split('.')[2]
+            console.log(jwtId)
+            await jwtRefresh.updateOne({jwtId: jwtId}, {$set: {jwtId: newJwtId}})
+            const [newAccessToken, ] = await createAccessToken(decoded.username)
+            return res.status(200).json(newAccessToken)
+          } catch(err) {
+            console.log(err)
+            return res.status(406).json('user does not exist')
+          }
+          // create new access token and refresh token
+        }
+      })
+    } else {
+      // revoke all refresh token
+      await jwtRefresh.deleteMany({username: currentUser})
+      res.status(406).json('used old refresh token, revoke all user, redirect to login')
+    }
+
+  }
 })
 
 app.post('/login', async (req, res) => {
@@ -103,10 +153,14 @@ app.post('/login', async (req, res) => {
     const match = await bcrypt.compare(password, user.password)
     if (match) {
       // return refresh token and access token
-      const [accessToken, error] = await createAccessToken(username)
-      const [refreshToken, error1] = await createRefreshToken(username)
-      console.log(accessToken)
-      console.log(refreshToken)
+      let [accessToken, createAccessErr] = await createAccessToken(username)
+      if (createAccessErr) {
+        res.status(401).json('user does not exist')
+      }
+      let [refreshToken, createRefreshErr] = await createRefreshToken(username)
+      if (createRefreshErr) {
+        res.status(401).json('user does not exist')
+      }
 
       // save the refresh token to database and send access token and refresh token to user cookie
       res.cookie('refreshToken', refreshToken, {
@@ -115,6 +169,15 @@ app.post('/login', async (req, res) => {
         secure: true,
         maxAge: 24 * 60 * 60 * 1000
       })
+      console.log(refreshToken)
+      const jwtId = refreshToken.split('.')[2]
+      try {
+        await jwtRefresh.insertOne({username: username, jwtId: jwtId})
+      } catch(err) {
+        res.status(406).json('error with refreshToken')
+      }
+
+      // save refresh token to db to check revoke token
 
       res.status(200).json(accessToken)
     }
