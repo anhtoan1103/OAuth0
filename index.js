@@ -25,10 +25,19 @@ const createAccessToken = async (username) => {
   // check if username is in database, incase 
   const user = await collection.findOne({username: username})
   if(!user) { //if user doesn't exist
-    return '', new Error("User doesn't exist.")
+    return ['', new Error("User doesn't exist.")]
   }
-  const token = jwt.sign({user: username}, 'secretkey', { expiresIn: 60 })
-  return token, null
+  const token = jwt.sign({user: username}, 'secretkey', { expiresIn: '1m' })
+  return [token, null]
+}
+const createRefreshToken = async (username) => {
+  // check if username is in database, incase 
+  const user = await collection.findOne({username: username})
+  if(!user) { //if user doesn't exist
+    return ['', new Error("User doesn't exist.")]
+  }
+  const token = jwt.sign({user: username}, 'secretkey', { expiresIn: '10m' })
+  return [token, null]
 }
 
 app.post('/register', async (req, res) => {
@@ -62,6 +71,27 @@ app.post('/register', async (req, res) => {
   }
 })
 
+app.post('/isAuth', async (req, res) => {
+  // check if accessToken does not expirate
+  const accessToken = req.header('accessToken')
+  const refreshToken = req.header('refreshToken')
+  console.log(accessToken)
+
+    
+  jwt.verify(accessToken, 'secretkey', (err, decoded) => {
+    // if expirate or something wrong with accessToken
+    if(err) {
+      try {
+        const refreshTokens = jwt.verify(refreshToken, 'secretkey')
+        // use refreshToken to create new accessToken and refreshToken
+        res.json(refreshTokens)
+      } catch(err) {
+        res.status(406).json("Invalid token")
+      }
+    }
+  })
+})
+
 app.post('/login', async (req, res) => {
   const username = req.body.username
   const password = req.body.password
@@ -73,8 +103,10 @@ app.post('/login', async (req, res) => {
     const match = await bcrypt.compare(password, user.password)
     if (match) {
       // return refresh token and access token
-      const accessToken = jwt.sign({username: username}, 'secretkey', {expiresIn: '1m'})
-      const refreshToken = jwt.sign({username: username}, 'secretkey', {expiresIn: '10m'})
+      const [accessToken, error] = await createAccessToken(username)
+      const [refreshToken, error1] = await createRefreshToken(username)
+      console.log(accessToken)
+      console.log(refreshToken)
 
       // save the refresh token to database and send access token and refresh token to user cookie
       res.cookie('refreshToken', refreshToken, {
@@ -84,7 +116,7 @@ app.post('/login', async (req, res) => {
         maxAge: 24 * 60 * 60 * 1000
       })
 
-      res.status(200).json({accessToken})
+      res.status(200).json(accessToken)
     }
   else {
     return res.status(406).json({
