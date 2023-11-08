@@ -1,42 +1,24 @@
 import { connectDB } from '../services/db.service.js'
+import Joi from 'joi'
 
-const db = await connectDB()
-db.createCollection("user", {
-  validator: {
-    $jsonSchema: {
-      bsonType: "object",
-      title: "User Object Validation",
-      required: ["username", "password"],
-      properties: {
-        username: {
-          bsonType: "string",
-          description: "'username' must be a string and is required"
-        },
-        password: {
-          bsonType: "string",
-          description: "'password' must be a string and is required"
-        }
-      }
-    }
-  }
+const USER_COLLECTION_SCHEMA = Joi.object({
+  username: Joi.string().alphanum().min(3).max(30).required(),
+  password: Joi.string().pattern(new RegExp('^[a-zA-Z0-9]{3,30}$'))
 })
 
-export const userSchema = ["user", {
-  validator: {
-    $jsonSchema: {
-      bsonType: "object",
-      title: "User Object Validation",
-      required: ["username", "password"],
-      properties: {
-        username: {
-          bsonType: "string",
-          description: "'username' must be a string and is required"
-        },
-        password: {
-          bsonType: "string",
-          description: "'password' must be a string and is required"
-        }
-      }
-    }
+const dbConnect = await connectDB()
+const db = dbConnect.collection('user')
+
+const validateUserBeforeCreate = async (data) => {
+  try {
+    const validData = await USER_COLLECTION_SCHEMA.validateAsync(data)
+    return validData
+  } catch(err) {
+    console.log(err)
   }
-}]
+}
+
+const createUser = async (data) => {
+  const validData = await validateUserBeforeCreate(data)
+  db.collections
+}
